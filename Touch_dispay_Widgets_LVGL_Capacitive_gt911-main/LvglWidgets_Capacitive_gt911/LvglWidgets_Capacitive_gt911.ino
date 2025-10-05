@@ -101,6 +101,7 @@ void create_controls_for_tab(lv_obj_t* parent, const char* btn1_text, const char
     lv_obj_align_to(slider2_label, slider2, LV_ALIGN_OUT_TOP_MID, 0, -5);
 
     // Event handlers remain the same
+    //  lv_obj_add_event_cb(object, callback_function, event_type, user_data)
     lv_obj_add_event_cb(btn1, [](lv_event_t* e) {
         uint32_t tab_num = (uint32_t)lv_obj_get_index(lv_obj_get_parent(lv_event_get_target(e))) + 1;
         Serial.printf("Button 1 pressed in tab %d\n", tab_num);
@@ -182,6 +183,12 @@ void setup()
         lv_indev_drv_register(&indev_drv);
 
         // Create a tab view object
+        /* tabview is the first object to be created
+        - lv_scr_act() returns a pointer to the current active screen object
+        - now tabview is a child of the Screen
+        - LV_DIR_TOP means tabs on the top (another option - LV_DIR_BOTTOM)
+        - 30:  the height of the tab button area in pixels
+        */
         lv_obj_t* tabview = lv_tabview_create(lv_scr_act(), LV_DIR_TOP, 30);
 
         // Add tabs
