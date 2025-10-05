@@ -3,7 +3,7 @@
 
 static void set_timer_value(void *bar, int32_t v)
 {
-    lv_bar_set_value(bar, v, LV_ANIM_OFF);
+    lv_bar_set_value((lv_obj_t *)bar, v, LV_ANIM_OFF); 
 }
 
 
