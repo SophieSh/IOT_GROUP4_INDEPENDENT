@@ -64,45 +64,38 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
 // TIMER UI LOGIC START 
 // -----------------------------------------------------------------------------
 
-static void set_timer_value(void *bar, int32_t v)
-{
-    lv_bar_set_value(bar, v, LV_ANIM_OFF); 
-}
-
 
 /**
  * @brief Event handler to change the bar's indicator color based on the remaining time.
  * Logic: Green ( > 2/3), Yellow ( > 1/3), Red ( <= 1/3)
  */
-static void timer_color_event_cb(lv_event_t * e) {
-    // 1. Get the bar object that triggered the event
-    lv_obj_t * bar = lv_event_get_target(e); 
-    
-    // 2. Get the current and maximum values (e.g., current value 30 down to 0, max value 30)
+
+static void update_timer_color(lv_obj_t * bar) {
     int32_t current_value = lv_bar_get_value(bar);
     int32_t max_value = lv_bar_get_max_value(bar);
     
-    // Calculate the thresholds dynamically (using integer division)
     int32_t one_third = max_value / 3;
     int32_t two_thirds = (max_value * 2) / 3;
     
     lv_color_t new_color;
 
     if (current_value > two_thirds) {
-        // Green zone: Time remaining is high (e.g., 21-30 seconds left)
-        new_color = lv_color_make(0, 180, 0); // Darker Green
+        new_color = lv_color_make(0, 180, 0); // Green
     } else if (current_value > one_third) {
-        // Yellow zone: Time remaining is medium (e.g., 11-20 seconds left)
         new_color = lv_color_make(255, 255, 0); // Yellow
     } else {
-        // Red zone: Time remaining is low (e.g., 0-10 seconds left)
         new_color = lv_color_make(255, 0, 0); // Red
     }
 
-    // 3. Apply the new color style to the indicator part of the bar
-    // LV_PART_INDICATOR ensures we only color the filled part
     lv_obj_set_style_bg_color(bar, new_color, LV_PART_INDICATOR);
 }
+
+static void set_timer_value(void *bar, int32_t v)
+{
+    lv_bar_set_value(bar, v, LV_ANIM_OFF); 
+    update_timer_color(bar_obj);
+}
+
 
 /**
  * @brief Custom drawing handler to display the bar's current value (seconds) on the indicator.
@@ -190,7 +183,6 @@ void create_timer_bar(int duration_seconds) {
 
 
     // --- PART 3: DYNAMIC COLOR HANDLING ---
-    lv_obj_add_event_cb(timer_bar, timer_color_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_add_event_cb(timer_bar, timer_display_event_cb, LV_EVENT_DRAW_PART_END, NULL);
 }
 
