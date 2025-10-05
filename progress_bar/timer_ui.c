@@ -47,7 +47,7 @@ static void timer_color_event_cb(lv_event_t * e) {
 static void timer_display_event_cb(lv_event_t * e)
 {
     // Get parameters related to the drawing process
-    lv_obj_draw_part_dsc_t * dsc = lv_event_get_param(e);
+    lv_obj_draw_part_dsc_t * dsc = lv_event_get_draw_part_dsc(e);
     
     // Check if the current drawing event is for the INDICATOR part of the bar
     if(dsc->part != LV_PART_INDICATOR) return;
@@ -63,11 +63,12 @@ static void timer_display_event_cb(lv_event_t * e)
     // 2. Convert the bar's current value (seconds remaining) to a string
     char buf[8];
     // lv_bar_get_value(obj) reads the seconds remaining (e.g., 30 down to 0)
-    lv_snprintf(buf, sizeof(buf), "%d", lv_bar_get_value(obj)); 
+    lv_snprintf(buf, sizeof(buf), "%d", (int)lv_bar_get_value(obj));
+
 
     // 3. Measure the dimensions of the text string
     lv_point_t txt_size;
-    lv_txt_get_size(&txt_size, buf, label_dsc.font, label_dsc.letter_space, dsc->line_space, LV_COORD_MAX, dsc->flag);
+    lv_txt_get_size(&txt_size, buf, label_dsc.font, label_dsc.letter_space, label_dsc.line_space, LV_COORD_MAX, label_dsc.flag);
 
     // 4. Determine the text position (inside or outside the filled area)
     lv_area_t txt_area;
@@ -92,7 +93,7 @@ static void timer_display_event_cb(lv_event_t * e)
     txt_area.y2 = txt_area.y1 + txt_size.y - 1;
 
     // 6. Execute the drawing command
-    lv_draw_label(&txt_area, dsc->clip_area, &label_dsc, buf, NULL);
+    lv_draw_label(dsc->draw_ctx, &label_dsc, &txt_area, buf, NULL);
 }
 
 void create_timer_bar(int duration_seconds) {
