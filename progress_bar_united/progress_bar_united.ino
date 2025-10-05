@@ -92,7 +92,13 @@ static void update_timer_color(lv_obj_t * bar) {
 
 static void set_timer_value(void *bar, int32_t v)
 {
-    lv_bar_set_value(bar, v, LV_ANIM_OFF); 
+    // 1. Explicitly cast the void* to the object pointer (lv_obj_t*).
+    lv_obj_t* bar_obj = (lv_obj_t *)bar;
+    
+    // 2. Set the bar value using the cast pointer.
+    lv_bar_set_value(bar_obj, v, LV_ANIM_OFF); 
+    
+    // 3. Call the color update function using the cast pointer.
     update_timer_color(bar_obj);
 }
 
