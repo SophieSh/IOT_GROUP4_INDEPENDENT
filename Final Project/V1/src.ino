@@ -1,10 +1,16 @@
 /*******************************************************************************
- * Intoducing the Game class through which eventually all mechanics will work
- * with the use of an instance of the class:      Game *game = new Game(...);
- * we controle such things as:
- * - what image is now shown?
- * - what's the first character of the image?
- * - processing letter presses to check if correct
+ *          ~- Full Project V1 -~
+ * A working game with image, letter buttons and timer bar
+ * The timer bar is set to 30 seconds, by which you'll need
+ * to click the letter corresponding to the first letter of
+ * the image. Or else, you failed, a handler is called, the
+ * timer reset and image skipped. If you succseed, you pass
+ * on to the following image and the timer is resets.
+
+ * Images are loaded from the MicroSDCard and you only need
+ * to add an image to the S:/images folder, with no updates
+ * to the code. Make sure the file/image name is lowercase.
+ 
  ******************************************************************************/
 
 #include <lvgl.h>
@@ -19,6 +25,7 @@
 #define LVGL_SD_DRIVE_LETTER 'S'
 #define TFT_BL 27
 #define GFX_BL DF_GFX_BL // default backlight pin
+#define QUIZ_DURATION_SECONDS 30
 
 
 /* Display configuration */
@@ -150,7 +157,8 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 
 class Game {
 public:
-    Game(lv_obj_t *img, lv_obj_t *timer) : current_image_obj_m(img), image_pos_m(0), timer_bar_m(timer) {
+    Game(lv_obj_t *img, lv_obj_t *timer) : current_image_obj_m(img), image_pos_m(0), timer_bar_obj_m
+    (timer) {
        //image_name_list_m = {"tree", "bus", "cat"};
        for (int i = 0; i < 10; ++i) {
             image_name_list_m = read_directory_file_list();
@@ -182,8 +190,10 @@ public:
         Serial.println("Yes");
         image_pos_m = (image_pos_m + 1) % image_name_list_m.size();
        
-        if (timer_bar_m) {
-            start_timer_animation(timer_bar_m); 
+        if (timer_bar_obj_m
+        ) {
+            start_timer_animation(timer_bar_obj_m
+            ); 
         }
 
         return true;
@@ -195,7 +205,8 @@ public:
 
 private:
     lv_obj_t *current_image_obj_m;
-    lv_obj_t *timer_bar_m;
+    lv_obj_t *timer_bar_obj_m
+    ;
     int image_pos_m;
     std::vector<std::string> image_name_list_m;
 };
@@ -647,8 +658,9 @@ void setup() {
     //delay(5000);
 
 
-    lv_obj_t *timer_bar = create_timer_bar(30, main_cont);
+    lv_obj_t *timer_bar = create_timer_bar(QUIZ_DURATION_SECONDS, main_cont);
     game = new Game(current_image_obj, timer_bar);
+    game->start_timer_animation(timer_bar);     
     init_image_display(tab0, game->get_path().c_str());
     add_letter_buttons(tab1, letters1, 8);
     add_letter_buttons(tab2, letters2, 8);
