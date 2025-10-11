@@ -1,13 +1,16 @@
 //
-// Created by Yonatan Rappoport on 05/10/2025.
+// Created by Yonatan, Gital, Sofiya on 05/10/2025.
 //
 
 #ifndef SRC_DRIVER_HANDLERS_H
 #define SRC_DRIVER_HANDLERS_H
 
+#include <vector>
+#include <string>
+
 #define LVGL_SD_DRIVE_LETTER 'S'
 
-/* fs driver handlers */
+/* fs driver handlers for Micro SD Card */
 static void *fs_open(lv_fs_drv_t *drv, const char *path, lv_fs_mode_t mode) {
     if (mode != LV_FS_MODE_RD) {
         return nullptr; // Only read mode
@@ -61,7 +64,7 @@ static lv_fs_res_t fs_seek(lv_fs_drv_t *drv, void *file_p, uint32_t pos, lv_fs_w
 }
 
 
-/* fs driver directory handlers */
+// fs directory handlers
 
 
 static void *fs_dir_open(lv_fs_drv_t *drv, const char *path) {
@@ -79,7 +82,6 @@ static void *fs_dir_open(lv_fs_drv_t *drv, const char *path) {
     
     return (void *)dir;
 }
-
 
 static lv_fs_res_t fs_dir_read(lv_fs_drv_t *drv, void *rddir_p, char *fn) {
     File *dir = (File *)rddir_p;
@@ -122,6 +124,9 @@ static lv_fs_res_t fs_dir_close(lv_fs_drv_t *drv, void *rddir_p) {
     return LV_FS_RES_UNKNOWN;
 }
 
+
+// setup driver handlers and initiate Micro SD card
+
 void init_sd_card() {
     if (!SD.begin()) Serial.println("SD Card Mount Failed");
     else Serial.println("SD Card Mounted successfully!");
@@ -129,7 +134,7 @@ void init_sd_card() {
     static lv_fs_drv_t fs_drv;
     lv_fs_drv_init(&fs_drv);
 
-    fs_drv.letter = LVGL_SD_DRIVE_LETTER; // 'S'
+    fs_drv.letter = LVGL_SD_DRIVE_LETTER;
     fs_drv.cache_size = 0;
     
     // Register the wrapper functions as handlers
@@ -146,17 +151,19 @@ void init_sd_card() {
     lv_fs_drv_register(&fs_drv);
 }
 
-std::vector<std::string> read_directory_file_list() {
+
+
+// Read list of file names in directory
+std::vector<std::string> read_directory_file_list(const char* path) {
     std::vector<std::string> file_list;
     lv_fs_dir_t dir;
     lv_fs_res_t res;
 
-    // LV_FS_MAX_FN_LENGTH is usually defined in lv_conf.h
-    // We use a safe local buffer size based on typical SD library path limits
-    char fn[256];
+    char fn[256]; // We used a buffer size of 256 for good mesure
 
-    // 1. Open the directory
-    res = lv_fs_dir_open(&dir, "S:/images");
+    // Open the directory
+    res = lv_fs_dir_open(&dir, path);
+
     if (res != LV_FS_RES_OK) {
         Serial.print("Error opening directory");
         return file_list; // Return empty list on failure
@@ -164,33 +171,28 @@ std::vector<std::string> read_directory_file_list() {
 
     Serial.print("Reading contents of S:/images/");
 
-    // 2. Read directory entries until the end is reached
+    // Read directory entries
     while (true) {
         res = lv_fs_dir_read(&dir, fn);
 
-        // Check for read error
         if (res != LV_FS_RES_OK) {
             Serial.print("Error reading directory entry.");
-            break;
+            break; // Read error
         }
 
-        // Check for end of list (LVGL convention: fn[0] == '\0')
-        if (fn[0] == '\0') {
+        // Check for end of list
+        if (fn[0] == '\0')
             break;
-        }
 
-        if (strcmp(fn, ".") != 0 &&
-            strcmp(fn, "..") != 0 &&
-            fn[0] != '/' &&
-            strncmp(fn, "._", 2) != 0) { // <-- NEW FILTERING LOGIC
-
+        if (strcmp(fn, ".") != 0 && strcmp(fn, "..") != 0 && fn[0] != '/' && strncmp(fn, "._", 2) != 0) {
+            // Valid file name
             file_list.push_back(std::string(fn));
             Serial.print("  Found: ");
             Serial.println(fn);
         }
     }
 
-    // 4. Close the directory
+    // Close directory
     lv_fs_dir_close(&dir);
 
     Serial.print("Finished reading directory. Total files found: ");

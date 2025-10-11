@@ -47,11 +47,11 @@ void writeRGBLED(int r, int g, int b) {
     // Write the inverted duty cycle to each channel
     ledcWrite(R_CHANNEL, calculateDuty(r));
     ledcWrite(G_CHANNEL, calculateDuty(g));
-    ledcWrite(B_CHANNEL, calculateDuty(b));
+    //ledcWrite(B_CHANNEL, calculateDuty(b));
 }
 
 /**
- * @function setRGBColor (parameterless version)
+ * @function setRGsColor (parameterless version)
  * Calculates the next Red, Green, and Blue values based on a STATIC time variable
  * using phase-shifted sine waves, and then sets the LED color.
  */

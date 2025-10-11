@@ -1,51 +1,49 @@
 /*******************************************************************************
- *          ~- Full Project V1 -~
- * A working game with image, letter buttons and timer bar
- * The timer bar is set to 30 seconds, by which you'll need
- * to click the letter corresponding to the first letter of
- * the image. Or else, you failed, a handler is called, the
- * timer reset and image skipped. If you succeed, you pass
- * on to the following image and the timer is resets.
-
- * Images are loaded from the MicroSDCard and you only need
- * to add an image to the S:/images folder, with no updates
- * to the code. Make sure the file/image's name is lowercase
- 
+ *        ~- Full Project V2 -~
+ * All functionallity from V1 and more
+ * Keyboard for access to all alphabet
+ * Popup timeout/fail/success messages
+ * Symbol icons - for illiterate users
+ * Wifi, IP & server TCP communication
+ * Draw-By-Touch canvas with clear_btn
+ * Send canvas to a server - check_btn
+ * Play buzzer melody for fail/success
  ******************************************************************************/
 
-#include <lvgl.h>
-#include <Arduino_GFX_Library.h>
-#include <vector>
-#include <string>
-#include "FS.h"
-#include "SD.h"
-#include "driver_handlers.h"
-#include "rgb_led.h"
-#include "timer_bar.h"
-#include <WiFi.h>
-#include <WiFiClient.h>
+// Includes
+#include <lvgl.h> 
+#include <Arduino_GFX_Library.h> // For touch controls
+#include <vector>                // For image_name_list
+#include <string>                // Names in: S:/images
+#include "FS.h"                  // For driver_handlers
+#include "SD.h"                  // Micro-SD-Card reads
+#include "driver_handlers.h"     // Drivers for SD card
+#include "timer_bar.h"           // Timer progress bars
+#include "sound.h"               // Victory/loss buzzes
+#include <WiFi.h>                // For wifi connection
+#include <WiFiClient.h>          // Server communication
 
 
-#define TFT_BL 27
-#define GFX_BL DF_GFX_BL // default backlight pin
-#define QUIZ_DURATION_SECONDS 30
-#define BL_CHANNEL 3
+#define TFT_BL 27       
+#define GFX_BL DF_GFX_BL
+#define QUIZ_DURATION_SECONDS 30 // Time to submit answer
+#define BL_CHANNEL 0
 
 
-/* Display configuration */
+// Display configuration
 Arduino_DataBus *bus = new Arduino_ESP32SPI(2 /* DC */, 15 /* CS */, 14 /* SCK */, 13 /* MOSI */, GFX_NOT_DEFINED /* MISO */);
 Arduino_GFX *gfx = new Arduino_ST7789(bus, -1 /* RST */, 3 /* rotation */, true /* IPS */);
 
 #include "touch.h"
 
-/* Screen and LVGL buffers */
+// Screen and LVGL buffers
 static uint32_t screenWidth;
 static uint32_t screenHeight;
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t *disp_draw_buf;
 static lv_disp_drv_t disp_drv;
 
-/* Current image challange */
+// Current image challange
 static lv_obj_t *current_image_obj = nullptr;
 static lv_obj_t *global_tabview = nullptr;
 static lv_obj_t *global_canvas = nullptr;
@@ -58,11 +56,11 @@ static lv_coord_t last_y = -1;
 static lv_draw_line_dsc_t line_dsc;
 
 // --- TCP CLIENT / WIFI CONFIGURATION (NEW) ---
-const char* WIFI_SSID = "NZH-wifi";
-const char* WIFI_PASSWORD = "shirshur";
+const char* WIFI_SSID = "ITSY";
+const char* WIFI_PASSWORD = "0546652087";
 
-// !!! IMPORTANT: Replace this IP with your computer's actual local IP address.
-IPAddress SERVER_IP(192, 168, 68, 112); 
+// IMPORTANT: Replace this IP with your server's actual local IP address
+IPAddress SERVER_IP(10,0,0,2); 
 const int SERVER_PORT = 8080;          
 
 WiFiClient client;
@@ -94,7 +92,7 @@ void connectToWiFi() {
     }
 }
 
-/* Display flushing */
+// Display flushing
 void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p) {
     uint32_t w = (area->x2 - area->x1 + 1);
     uint32_t h = (area->y2 - area->y1 + 1);
@@ -107,7 +105,7 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
     lv_disp_flush_ready(disp);
 }
 
-/* Read touch points */
+// Read touch points
 void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
     if (touch_has_signal()) {
         if (touch_touched()) {
@@ -124,7 +122,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
 
 void handle_sound_btn();
 
-    /* Configure initial image tab */
+// Configure initial image tab
 lv_obj_t* init_image_display(lv_obj_t* parent, const char* path) {
     lv_obj_t *cont = lv_obj_create(parent);
     lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC);
@@ -171,26 +169,17 @@ lv_obj_t* init_image_display(lv_obj_t* parent, const char* path) {
     return img;
 }
 
-/* Changes img_obj to .bin image in new_path (from Micro-SD Card) */
+// Changes img_obj to .bin image in new_path (from Micro-SD Card)
 void change_image(lv_obj_t *img_obj, const char *new_path) {
-    // --- LVGL Object Replacement Strategy ---
-
-    // 1. Get the parent container (to put the new image in the same spot)
     lv_obj_t *parent_cont = lv_obj_get_parent(img_obj);
 
-    // 2. Remove the OLD image object and its resources.
-    // This removes the object from the screen and frees its internal LVGL resources.
-    // Since LVGL manages the object, it does not hold the file handle open after reading.
     lv_obj_del(img_obj);
             
     lv_obj_t *img = lv_img_create(parent_cont);
-
     lv_img_set_src(img, new_path);
 
-
     if (lv_img_get_src(img) == NULL) {
-        // If loading failed, show a fallback label
-        lv_obj_clean(img); // Remove the image object
+        lv_obj_clean(img);
                 
         lv_obj_t *label = lv_label_create(parent_cont);
         lv_label_set_text(label, "IMG NOT FOUND");
@@ -200,11 +189,7 @@ void change_image(lv_obj_t *img_obj, const char *new_path) {
         return;
     }
 
-    // Update the global pointer to the NEW image object
     current_image_obj = img;
-
-    // IMPORTANT: Tell the parent container to re-layout its children 
-    // (critical for Flex layouts)
     lv_obj_update_layout(parent_cont);
 }
 
@@ -214,7 +199,7 @@ public:
     Game(lv_obj_t *img, lv_obj_t *timer) : current_image_obj_m(img), image_pos_m(0), timer_bar_obj_m(timer) {
         start_timer_animation();
         for (int i = 0; i < 10; ++i) {
-            image_name_list_m = read_directory_file_list();
+            image_name_list_m = read_directory_file_list("S:/images");
             if (!image_name_list_m.empty()) break;
         }
     }
@@ -245,7 +230,6 @@ public:
 
     void iterate_image() {
         image_pos_m = (image_pos_m + 1) % image_name_list_m.size();
-    
     }
 private:
     lv_obj_t *current_image_obj_m;
@@ -260,25 +244,22 @@ private:
 
 };
 
-Game* game;
+
+
+Game* global_game; // Game instance
 
 
 static void close_msgbox_timer_cb(lv_timer_t *timer) {
-    // The user_data points to the message box object (pop_up)
-    lv_obj_t *msgbox = (lv_obj_t *)timer->user_data;
-
-    // Delete the message box
+    lv_obj_t *msgbox = (lv_obj_t*)timer->user_data;
     lv_msgbox_close(msgbox); 
-    // Alternatively, you could use lv_obj_del(msgbox); 
 }
-
 
 void Game::handle_failure() {
     pause_timer_animation();
 
     lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_CLOSE, "NO", NULL, false);
     lv_obj_center(pop_up);
-    lv_obj_set_width(pop_up, 100);
+    lv_obj_set_width(pop_up, 65);
 
     uint32_t close_delay_ms = 1000;
     lv_timer_t *timer = lv_timer_create(close_msgbox_timer_cb, close_delay_ms, pop_up);
@@ -289,7 +270,8 @@ void Game::handle_failure() {
 
     iterate_image();
     start_timer_animation();
-    change_image(current_image_obj, game->get_path().c_str());
+    change_image(current_image_obj, global_game->get_path().c_str());
+    playLossSound();
 }
 
 void Game::handle_success() {
@@ -297,18 +279,19 @@ void Game::handle_success() {
 
     lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_OK, "YES", NULL, false);
     lv_obj_center(pop_up);
-    lv_obj_set_width(pop_up, 100);
+    lv_obj_set_width(pop_up, 65);
 
     uint32_t close_delay_ms = 1000;
     lv_timer_t *timer = lv_timer_create(close_msgbox_timer_cb, close_delay_ms, pop_up);
     lv_timer_set_repeat_count(timer, 1);
 
-
+    
     lv_tabview_set_act(global_tabview, 0, LV_ANIM_ON);
 
     iterate_image();
     start_timer_animation();
-    change_image(current_image_obj, game->get_path().c_str());
+    change_image(current_image_obj, global_game->get_path().c_str());
+    playVictorySound();
 }
 
 void handle_clear_btn() {
@@ -382,7 +365,7 @@ void handle_check_btn() {
 }
 
 static void on_timer_timeout(lv_anim_t * a) {
-    game->pause_timer_animation();
+    global_game->pause_timer_animation();
     Serial.println("!!! TIME IS UP! Moving to next image. !!!");
     lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_WARNING, "time's up", NULL, false);
     lv_obj_center(pop_up);
@@ -395,21 +378,17 @@ static void on_timer_timeout(lv_anim_t * a) {
 
     lv_tabview_set_act(global_tabview, 0, LV_ANIM_ON);
 
-    game->iterate_image();
-    change_image(current_image_obj, game->get_path().c_str());
+    global_game->iterate_image();
+    change_image(current_image_obj, global_game->get_path().c_str());
 
-    // 3. Restart the timer for the new challenge
-    // 'a->var' holds the pointer to the lv_bar_t object
-    game->start_timer_animation();
+    global_game->start_timer_animation();
 }
 
 void Game::start_timer_animation() {
-    // Stop any existing animation on this object first to prevent conflicts
     lv_anim_del(timer_bar_obj_m, NULL);
     
     int duration_seconds = lv_bar_get_max_value(timer_bar_obj_m);
     
-    // Set bar to max value (full) before starting the animation
     lv_bar_set_value(timer_bar_obj_m, duration_seconds, LV_ANIM_OFF); 
 
     lv_anim_t a; 
@@ -435,6 +414,7 @@ void Game::pause_timer_animation() {
 }
 
 void handle_sound_btn() {
+    // Speak
     return;
 }
 
@@ -449,8 +429,8 @@ static void keyboard_event_cb(lv_event_t *e) {
         // Only process single-character buttons (letters/numbers/symbols)
         char pressed_char = txt[0];
         Serial.printf("Keyboard pressed: %c\n", pressed_char);
-        if (game) {
-            game->process(pressed_char);
+        if (global_game) {
+            global_game->process(pressed_char);
         }
     } else if (code == LV_EVENT_READY || code == LV_EVENT_CANCEL) {
         // Handle "OK" or "Close" if needed, e.g., to switch back to the main tab
@@ -470,10 +450,10 @@ static void canvas_draw_event_cb(lv_event_t * e) {
     if (code == LV_EVENT_PRESSING) {
         lv_point_t current_point;
         
-        // 1. Get the current touch coordinates relative to the screen
+        // Get the current touch coordinates relative to the screen
         lv_indev_get_point(indev, &current_point);
         
-        // 2. Translate screen coordinates to canvas-local coordinates
+        // Translate screen coordinates to canvas-local coordinates
         lv_area_t canvas_area;
         lv_obj_get_coords(canvas, &canvas_area);
 
@@ -576,17 +556,17 @@ lv_obj_t* initialize_and_place_canvas(lv_obj_t* parent_obj, lv_coord_t width, lv
 
 
 
-    // 1. Calculate the required buffer size in bytes
+    // Calculate required buffer size in bytes
     size_t buf_size = LV_CANVAS_BUF_SIZE_TRUE_COLOR(width, height);
 
-    // 2. Allocate the buffer dynamically on the heap
+    // Allocate the buffer dynamically on the heap
     lv_color_t* canvas_buffer = (lv_color_t*) malloc(buf_size);
     
     if (canvas_buffer == nullptr) {
         return nullptr; // Allocation failed
     }
 
-    // 3. Create the canvas object
+    // Create the canvas object
     lv_obj_t* canvas = lv_canvas_create(cont);
     
     if (!canvas) {
@@ -653,15 +633,9 @@ lv_obj_t* initialize_and_place_canvas(lv_obj_t* parent_obj, lv_coord_t width, lv
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("LVGL Image Tab");
-
-    ledcSetup(R_CHANNEL, freq, resolution);
-    ledcSetup(G_CHANNEL, freq, resolution);
-    ledcSetup(B_CHANNEL, freq, resolution);
-
-    ledcAttachPin(LED_R_PIN, R_CHANNEL);
-    ledcAttachPin(LED_G_PIN, G_CHANNEL);
-    ledcAttachPin(LED_B_PIN, B_CHANNEL);
+    pinMode(melodyPin, OUTPUT);
+    ledcSetup(BUZZER_CHANNEL, BUZZER_FREQ_MAX, BUZZER_RESOLUTION);
+    ledcAttachPin(melodyPin, BUZZER_CHANNEL);
 
     gfx->begin(80000000);
 #ifdef TFT_BL
@@ -825,7 +799,7 @@ void setup() {
                     const char *text = lv_label_get_text(lbl);
                     
                     Serial.printf("Pressed: %s\n", text);
-                    game->process(text[0]);
+                    global_game->process(text[0]);
                 }, LV_EVENT_CLICKED, NULL);
             }
     };
@@ -833,20 +807,21 @@ void setup() {
 
 
     // Letters for each tab
-    const char *letters1[] = {"a", "b", "c", "d", "e", "f", "g", "h"};
-    const char *letters2[] = {"i", "j", "k", "l", "m", "n", "o", "p"};
-    const char *letters3[] = {"q", "r", "s", "t", "u", "v", "w", "x"};
+    //const char *letters1[] = {"a", "b", "c", "d", "e", "f", "g", "h"};
+    //const char *letters2[] = {"i", "j", "k", "l", "m", "n", "o", "p"};
+    //const char *letters3[] = {"q", "r", "s", "t", "u", "v", "w", "x"};
 
     // Intialize tabs
     
 
     lv_obj_t *timer_bar = create_timer_bar(QUIZ_DURATION_SECONDS, main_cont);
-    game = new Game(current_image_obj, timer_bar);
-    init_image_display(tab0, game->get_path().c_str());
+    global_game
+ = new Game(current_image_obj, timer_bar);
+    init_image_display(tab0, global_game->get_path().c_str());
     initialize_and_place_canvas(tab2, 120, 120);
     //add_letter_buttons(tab1, letters1, 8);
     //add_letter_buttons(tab2, letters2, 8);
-   // add_letter_buttons(tab3, letters3, 8);
+    //add_letter_buttons(tab3, letters3, 8);
 
 
     //writeRGBLED(0,0,0);
@@ -856,7 +831,6 @@ void setup() {
 
 void loop() {
     lv_timer_handler(); // let LVGL run
-    setRGBColor();
-    //writeRGBLED(0, 255, 0);
+    //setRGBColor();
     delay(5);
 }
