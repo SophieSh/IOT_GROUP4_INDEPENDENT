@@ -1,7 +1,7 @@
 #ifndef _SECRETS_H
 #define _SECRETS_H
 
-const char*ssid = ""; //example only - your project may have ssid/pass set by user
+const char*ssid = "";
 const char* password = "";
 const char*  server = "speech.googleapis.com";
 
