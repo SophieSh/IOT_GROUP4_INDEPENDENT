@@ -56,4 +56,9 @@ void playLossSound() {
     _playNote(NOTE_C3, noteDuration, restDuration/ 2 ); 
 }
 
+void stopBuzzer() {
+    ledcWrite(BUZZER_CHANNEL, 0); 
+    ledcDetachPin(melodyPin); 
+}
+
 #endif //SRC_SOUND_H

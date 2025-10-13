@@ -12,7 +12,7 @@
 
 // Includes
 #include <lvgl.h> 
-#include <Arduino_GFX_Library.h> // For touch controls
+#include <Arduino_GFX_Library.h> // for Touch controls
 #include <vector>                // For image_name_list
 #include <string>                // Names in: S:/images
 #include "FS.h"                  // For driver_handlers
@@ -21,7 +21,9 @@
 #include "timer_bar.h"           // Timer progress bars
 #include "sound.h"               // Victory/loss buzzes
 #include <WiFi.h>                // For wifi connection
-#include <WiFiClient.h>          // Server communication
+#include <WiFiClient.h>          // Client TCP protocol
+#include "SECRETS.h"             // MUST CONFIGURE FILE
+#include <random>
 
 
 #define TFT_BL 27       
@@ -55,13 +57,7 @@ static lv_coord_t last_y = -1;
 // Define how the line should look (color, width).
 static lv_draw_line_dsc_t line_dsc;
 
-// --- TCP CLIENT / WIFI CONFIGURATION (NEW) ---
-const char* WIFI_SSID = "ITSY";
-const char* WIFI_PASSWORD = "0546652087";
-
-// IMPORTANT: Replace this IP with your server's actual local IP address
-IPAddress SERVER_IP(10,0,0,2); 
-const int SERVER_PORT = 8080;          
+     
 
 WiFiClient client;
 const char* DEVICE_HOSTNAME = "ESP32-LVGL-Client";
@@ -308,7 +304,10 @@ void handle_check_btn() {
         return;
     }
 
-    // 1. Get Canvas Data Descriptor
+    //stopBuzzer(); 
+    //Serial.println("Buzzer forcibly stopped to prioritize Wi-Fi transfer.");
+    //delay(100);
+    // Get Canvas Data Descriptor
     const lv_img_dsc_t* img_dsc = lv_canvas_get_img(global_canvas);
     if (!img_dsc || !img_dsc->data) {
         Serial.println("Error: Canvas buffer data not found.");
@@ -319,10 +318,9 @@ void handle_check_btn() {
     size_t buf_size = img_dsc->header.w * img_dsc->header.h * sizeof(lv_color_t);
     uint8_t* buffer = (uint8_t*)img_dsc->data;
 
-    Serial.printf("\n*** Button Pressed! Sending Canvas Buffer (%dx%d, %d bytes) ***\n", 
-                  img_dsc->header.w, img_dsc->header.h, buf_size);
+    Serial.printf("\n*** Button Pressed! Sending Canvas Buffer (%dx%d, %d bytes) ***\n", img_dsc->header.w, img_dsc->header.h, buf_size);
 
-    // 2. Attempt to connect to the server
+    // Attempt to connect to the server
     if (!client.connected()) {
         Serial.print("Attempting to connect to TCP Server...");
         if (client.connect(SERVER_IP, SERVER_PORT)) {
@@ -333,21 +331,22 @@ void handle_check_btn() {
         }
     }
 
-    // 3. Send the raw data
+    // Send the raw data
     if (client.connected()) {
         // --- Protocol Header ---
         // Send a simple header so the Python server knows what to expect (Width,Height,Size)
-        String header = "CANVAS:" + String(img_dsc->header.w) + "," + 
-                        String(img_dsc->header.h) + "," + String(buf_size) + "\n";
+        String header = "CANVAS:" + String(img_dsc->header.w) + "," + String(img_dsc->header.h) + "," + String(buf_size) + "\n";
         client.print(header);
+
+        delay(200);
         
         // Send the raw pixel buffer data
         size_t bytes_sent = client.write(buffer, buf_size);
         
         Serial.printf("Sent %d bytes of canvas data.\n", bytes_sent);
 
-        // 4. Read server acknowledgment (ACK)
-        delay(100); 
+        // Read server acknowledgment (ACK)
+        delay(200); 
         if (client.available()) {
             Serial.print("<- Server ACK: ");
             while (client.available()) {
@@ -358,10 +357,12 @@ void handle_check_btn() {
             Serial.println("<- No acknowledgment received from server.");
         }
 
-        // 5. Close the connection after sending/receiving
+        // Close the connection after sending/receiving
         client.stop();
         Serial.println("Connection closed after transfer.");
     }
+
+    //ledcAttachPin(melodyPin, BUZZER_CHANNEL); 
 }
 
 static void on_timer_timeout(lv_anim_t * a) {
@@ -633,6 +634,7 @@ lv_obj_t* initialize_and_place_canvas(lv_obj_t* parent_obj, lv_coord_t width, lv
 
 void setup() {
     Serial.begin(115200);
+    
     pinMode(melodyPin, OUTPUT);
     ledcSetup(BUZZER_CHANNEL, BUZZER_FREQ_MAX, BUZZER_RESOLUTION);
     ledcAttachPin(melodyPin, BUZZER_CHANNEL);
@@ -815,8 +817,7 @@ void setup() {
     
 
     lv_obj_t *timer_bar = create_timer_bar(QUIZ_DURATION_SECONDS, main_cont);
-    global_game
- = new Game(current_image_obj, timer_bar);
+    global_game = new Game(current_image_obj, timer_bar);
     init_image_display(tab0, global_game->get_path().c_str());
     initialize_and_place_canvas(tab2, 120, 120);
     //add_letter_buttons(tab1, letters1, 8);
