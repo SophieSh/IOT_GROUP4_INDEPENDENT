@@ -24,6 +24,8 @@
 #include <WiFiClient.h>          // Client TCP protocol
 #include "SECRETS.h"             // MUST CONFIGURE FILE
 #include <random>
+#include <algorithm>
+#include <ctime>
 
 
 #define TFT_BL 27       
@@ -58,6 +60,9 @@ static lv_coord_t last_y = -1;
 static lv_draw_line_dsc_t line_dsc;
 
      
+const int ARRAY_SIZE = 8;
+const std::string ALPHABET = "אבגדהוזחטיכלמנסעפצקרשת";
+const int ALPHABET_SIZE = 22;
 
 WiFiClient client;
 const char* DEVICE_HOSTNAME = "ESP32-LVGL-Client";
@@ -213,7 +218,7 @@ void change_image(lv_obj_t *img_obj, const char *new_path) {
 
 class Game {
 public:
-    Game(lv_obj_t *img, lv_obj_t *timer) : current_image_obj_m(img), image_pos_m(0), timer_bar_obj_m(timer) {
+    Game(lv_obj_t *img, lv_obj_t *timer, lv_obj_t* button_tab) : current_image_obj_m(img), image_pos_m(0), timer_bar_obj_m(timer), button_tab_m(button_tab) {
         start_timer_animation();
         for (int i = 0; i < 10; ++i) {
             image_name_list_m = read_directory_file_list("S:/images");
@@ -226,6 +231,55 @@ public:
             lv_obj_set_width(pop_up, 250);
         }
     }
+
+  const char** get_letters(char c) {
+
+    const char* array[] = {"ח", "ז", "ו", "ה", "ד", "ג", "ב", "א"};
+    return array;
+    
+
+    // We use C++ random generator for quality, but standard library functions for memory.
+    static std::mt19937 generator(static_cast<unsigned int>(time(nullptr)));
+    std::uniform_int_distribution<> alpha_dist(0, ALPHABET_SIZE - 1);
+    std::uniform_int_distribution<> array_dist(0, ARRAY_SIZE - 1);
+
+    // 1. Allocate the array of 8 char pointers (const char**)
+    // We cast to const char** because the calling function expects it.
+    //const char** letters_array = (const char**)malloc(ARRAY_SIZE * sizeof(char*));
+    const char* letters_array[8] = {"א", "ב", "ג", "ד", "ה", "ו", "ז", "ח"};
+    if (letters_array == nullptr) {
+        return nullptr; // Return on failure
+    }
+
+    // Choose a random index to place the input character 'c'
+    int c_index = array_dist(generator);
+
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        char letter_char;
+
+        if (i == c_index) {
+            // Place the required character 'c'
+            letter_char = c;
+        } else {
+            // Place a random character
+            int random_index = alpha_dist(generator);
+            letter_char = ALPHABET[random_index];
+        }
+
+        // 2. Allocate memory for the single-character string (1 char + 1 for null terminator)
+        char* single_letter_string = "א";
+
+
+        // 3. Populate the string and add the null terminator
+        single_letter_string[0] = letter_char;
+        single_letter_string[1] = '\0';
+
+        // Assign the newly created C-string to the pointer array
+        letters_array[i] = single_letter_string;
+    }
+
+    return letters_array;
+}
 
     std::string get_path() {
         if (image_pos_m == -1) return "";
@@ -254,11 +308,15 @@ public:
     void iterate_image() {
         image_pos_m = (image_pos_m + 1) % image_name_list_m.size();
     }
+
+    lv_obj_t *button_tab_m;
 private:
     lv_obj_t *current_image_obj_m;
     lv_obj_t *timer_bar_obj_m;
+ 
     int image_pos_m;
     std::vector<std::string> image_name_list_m;
+    
 
     void handle_failure();
     void handle_success();
@@ -292,7 +350,9 @@ void Game::handle_failure() {
 
     iterate_image();
     start_timer_animation();
-    change_image(current_image_obj, global_game->get_path().c_str());
+    change_image(current_image_obj, get_path().c_str());
+    //lv_obj_clean(button_tab_m);
+    //add_letter_buttons(button_tab_m, get_letters(get_first_letter()), 8);
     playLossSound();
 }
 
@@ -313,6 +373,8 @@ void Game::handle_success() {
     iterate_image();
     start_timer_animation();
     change_image(current_image_obj, global_game->get_path().c_str());
+    //lv_obj_clean(button_tab_m);
+    //add_letter_buttons(button_tab_m, get_letters(get_first_letter()), 8);
     playVictorySound();
 }
 
@@ -391,6 +453,60 @@ void handle_check_btn() {
     //ledcAttachPin(melodyPin, BUZZER_CHANNEL); 
 }
 
+void add_letter_buttons(lv_obj_t *parent, const char *letters[], int count) {
+            lv_obj_t *cont = lv_obj_create(parent);
+            lv_obj_set_size(cont, 300, 150);
+            lv_obj_center(cont);
+            lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
+            lv_obj_set_style_pad_gap(cont, 10, 0);
+
+            lv_obj_set_style_bg_color(cont, lv_color_hex(0x003773), 0); // Dark Blue Gray
+            lv_obj_set_style_bg_opa(cont, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(cont, 0, 0); 
+
+
+
+            static lv_style_t button_style;
+            lv_style_init(&button_style);
+            
+            lv_style_set_bg_color(&button_style, lv_color_hex(0x59BDB8));
+            lv_style_set_bg_opa(&button_style, LV_OPA_COVER);
+            
+            // Set the color for the pressed state (LV_STATE_PRESSED)
+            static lv_style_t pressed_style;
+            lv_style_init(&pressed_style);
+            lv_style_set_bg_color(&pressed_style, lv_color_hex(0x449490));
+    
+
+            static lv_style_t button_label_style;
+            lv_style_init(&button_label_style);
+            lv_style_set_text_font(&button_label_style, &lv_font_dejavu_16_persian_hebrew); 
+            lv_style_set_text_color(&button_label_style, lv_color_hex(0x000000));
+
+            for (int i = 0; i < count; i++) {
+                lv_obj_t *btn = lv_btn_create(cont);
+                lv_obj_set_size(btn, 60, 55);
+
+                lv_obj_add_style(btn, &button_style, LV_PART_MAIN);
+                lv_obj_add_style(btn, &pressed_style, LV_PART_MAIN | LV_STATE_PRESSED);
+
+                lv_obj_t *label = lv_label_create(btn);
+                lv_label_set_text(label, letters[i]);
+                lv_obj_center(label);
+                lv_obj_add_style(label, &button_label_style, 0); 
+
+                // Print pressed letter to Serial
+                lv_obj_add_event_cb(btn, [](lv_event_t *e) {
+                    lv_obj_t *lbl = lv_obj_get_child(lv_event_get_target(e), 0);
+                    const char *text = lv_label_get_text(lbl);
+                    
+                    Serial.printf("Pressed: %s\n", text);
+                    global_game->process(text[0]);
+                }, LV_EVENT_CLICKED, NULL);
+            }
+    }
+
+
 static void on_timer_timeout(lv_anim_t * a) {
     global_game->pause_timer_animation();
     Serial.println("!!! TIME IS UP! Moving to next image. !!!");
@@ -407,7 +523,9 @@ static void on_timer_timeout(lv_anim_t * a) {
 
     global_game->iterate_image();
     change_image(current_image_obj, global_game->get_path().c_str());
-
+    //lv_obj_clean(global_game->button_tab_m);
+    //add_letter_buttons(global_game->button_tab_m, global_game->get_letters(global_game->get_first_letter()), 8);
+    
     global_game->start_timer_animation();
 }
 
@@ -658,6 +776,7 @@ lv_obj_t* initialize_and_place_canvas(lv_obj_t* parent_obj, lv_coord_t width, lv
 }
 
 
+
 void setup() {
     Serial.begin(115200);
     
@@ -733,9 +852,9 @@ void setup() {
 
         // Add 4 tabs
         lv_obj_t *tab0 = lv_tabview_add_tab(tabview, LV_SYMBOL_IMAGE);
-        lv_obj_t *tab1 = lv_tabview_add_tab(tabview, LV_SYMBOL_KEYBOARD);
-        lv_obj_t *tab2 = lv_tabview_add_tab(tabview, LV_SYMBOL_EDIT);
-        //lv_obj_t *tab3 = lv_tabview_add_tab(tabview, "q-x");
+        lv_obj_t *tab1 = lv_tabview_add_tab(tabview, LV_SYMBOL_LIST);
+        lv_obj_t *tab2 = lv_tabview_add_tab(tabview, LV_SYMBOL_KEYBOARD);
+        lv_obj_t *tab3 = lv_tabview_add_tab(tabview, LV_SYMBOL_EDIT);
 
         auto setup_tab_layout = [](lv_obj_t* tab) {
             lv_obj_set_style_bg_color(tab, lv_color_hex(0x504DB3), 0); // Dark Blue Gray
@@ -757,88 +876,35 @@ void setup() {
         setup_tab_layout(tab0);
         setup_tab_layout(tab1);
         setup_tab_layout(tab2);
-       // setup_tab_layout(tab3);
+        setup_tab_layout(tab3);
 
 
-        lv_obj_t *keyboard = lv_keyboard_create(tab1);
+        lv_obj_t *keyboard = lv_keyboard_create(tab2);
         lv_obj_set_size(keyboard, LV_PCT(100), LV_PCT(100)); // Make it fill most of the tab
         lv_obj_center(keyboard);
 
         lv_obj_set_style_pad_all(keyboard, 0, 0);
         lv_obj_set_style_border_width(keyboard, 0, 0);
 
-        // Set the mode to lowercase letters
+        //Set the mode to lowercase letters
         lv_keyboard_set_mode(keyboard, LV_KEYBOARD_MODE_TEXT_LOWER);
-
-        // Set the event handler to capture key presses
+ 
+        //Set the event handler to capture key presses
         lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_ALL, NULL);
 
 
 
         // Helper: add Hebrew letter buttons
-        auto add_letter_buttons = [](lv_obj_t *parent, const char *letters[], int count) {
-            lv_obj_t *cont = lv_obj_create(parent);
-            lv_obj_set_size(cont, 300, 150);
-            lv_obj_center(cont);
-            lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW_WRAP);
-            lv_obj_set_style_pad_gap(cont, 10, 0);
-
-            lv_obj_set_style_bg_color(cont, lv_color_hex(0x003773), 0); // Dark Blue Gray
-            lv_obj_set_style_bg_opa(cont, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_width(cont, 0, 0); 
-
-
-
-            static lv_style_t button_style;
-            lv_style_init(&button_style);
-            
-            lv_style_set_bg_color(&button_style, lv_color_hex(0x59BDB8));
-            lv_style_set_bg_opa(&button_style, LV_OPA_COVER);
-            
-            // Set the color for the pressed state (LV_STATE_PRESSED)
-            static lv_style_t pressed_style;
-            lv_style_init(&pressed_style);
-            lv_style_set_bg_color(&pressed_style, lv_color_hex(0x449490));
-    
-
-            static lv_style_t button_label_style;
-            lv_style_init(&button_label_style);
-            lv_style_set_text_font(&button_label_style, &lv_font_montserrat_32); 
-            lv_style_set_text_color(&button_label_style, lv_color_hex(0x000000));
-
-            for (int i = 0; i < count; i++) {
-                lv_obj_t *btn = lv_btn_create(cont);
-                lv_obj_set_size(btn, 60, 55);
-
-                lv_obj_add_style(btn, &button_style, LV_PART_MAIN);
-                lv_obj_add_style(btn, &pressed_style, LV_PART_MAIN | LV_STATE_PRESSED);
-
-                lv_obj_t *label = lv_label_create(btn);
-                lv_label_set_text(label, letters[i]);
-                lv_obj_center(label);
-                lv_obj_add_style(label, &button_label_style, 0); 
-
-                // Print pressed letter to Serial
-                lv_obj_add_event_cb(btn, [](lv_event_t *e) {
-                    lv_obj_t *lbl = lv_obj_get_child(lv_event_get_target(e), 0);
-                    const char *text = lv_label_get_text(lbl);
-                    
-                    Serial.printf("Pressed: %s\n", text);
-                    global_game->process(text[0]);
-                }, LV_EVENT_CLICKED, NULL);
-            }
-    };
-
 
 
     // Letters for each tab
-    //const char *letters1[] = {"a", "b", "c", "d", "e", "f", "g", "h"};
-    //const char *letters2[] = {"i", "j", "k", "l", "m", "n", "o", "p"};
-    //const char *letters3[] = {"q", "r", "s", "t", "u", "v", "w", "x"};
+    //const char *letters1[] = {"א", "ב", "ג", "ד", "ה", "ו", "ז", "ח"};
+    ///const char *letters2[] = {"ט", "י", "ק", "ל", "מ", "נ", "ס", "ע"};
+    const char *letters3[] = {"ח", "ז", "ו", "ה", "ד", "ג", "ב", "א"};
 
     // Intialize tabs
     
-    initialize_and_place_canvas(tab2, 120, 120);
+    initialize_and_place_canvas(tab3, 120, 120);
     lv_timer_handler();
 
     if(!init_sd_card()) {
@@ -895,15 +961,15 @@ void setup() {
     }
 
     lv_obj_t *timer_bar = create_timer_bar(QUIZ_DURATION_SECONDS, main_cont);
-    global_game = new Game(current_image_obj, timer_bar);
+    global_game = new Game(current_image_obj, timer_bar, tab1);
     init_image_display(tab0, global_game->get_path().c_str());
     //add_letter_buttons(tab1, letters1, 8);
     //add_letter_buttons(tab2, letters2, 8);
-    //add_letter_buttons(tab3, letters3, 8);
+    add_letter_buttons(tab1, letters3, 8);
 
 
     //writeRGBLED(0,0,0);
-    Serial.println("Setup done"); 
+    Serial.println("Setup done");
     }
 }
 
