@@ -1,10 +1,12 @@
-## Cheap-Yellow-Display Project by : Yonatan, Gital, Sofiya
+## AlphaLearn Project by : Yonatan Rappoport, Gital Monisov, Sofiya Shterenson
   
-## Details about the project
-* An application to learn the letters of the alphabet for illiterate people
-* A game of entering a letter corresponding to the first letter of an image
-* Combining multiple features: LCD screen, touch, sound, canvas & timer bar
- 
+## Project Description
+AlphaLearn is a compact educational game that helps children take their first steps in learning to read, write, and recognize letters.
+Built with LVGL, it runs on small displays and supports multiple learning styles — including visual learning through images, typing with a keyboard, and practicing on a handwriting canvas.
+The interface is child-friendly and easy to navigate, encouraging playful exploration.
+AlphaLearn provides real-time feedback through both sound and visuals to help children track their progress and correct mistakes instantly.
+The app includes several difficulty levels that gradually increase in complexity, supporting a step-by-step learning experience.
+
 ## Folder description :
 * ESP32: source code for the esp side (firmware), and necessary header files
 * Documentation: wiring curcuit diagram image + basic operating instructions
