@@ -449,7 +449,7 @@ const char* get_text_no_images() {
 }
 
 const char* get_text_game_complete() {
-    return selected_language == LANG_HEBREW ? "המשחק הסתיים!" : "Game Complete!";
+    return selected_language == LANG_HEBREW ? "!המשחק הסתיים" : "Game Complete!";
 }
 
 const char* get_text_score() {
