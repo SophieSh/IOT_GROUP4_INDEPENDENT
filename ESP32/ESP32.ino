@@ -241,11 +241,19 @@ public:
             delay(100);
         }
         if (image_name_list_m.empty()) {
-            char error_msg[150];
-            snprintf(error_msg, sizeof(error_msg), "Error: No images\nDirectory: \"%s/*.bin\" empty\nPlease add images", image_dir);
+            char error_msg[200];
+            if (selected_language == LANG_HEBREW) {
+                snprintf(error_msg, sizeof(error_msg), "%s\nתיקייה: \"%s/*.bin\"\nאנא הוסף תמונות", get_text_no_images(), image_dir);
+            } else {
+                snprintf(error_msg, sizeof(error_msg), "%s\nDirectory: \"%s/*.bin\" empty\nPlease add images", get_text_no_images(), image_dir);
+            }
             lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_SD_CARD, error_msg, NULL, false);
             lv_obj_center(pop_up);
             lv_obj_set_width(pop_up, 250);
+            if (selected_language == LANG_HEBREW) {
+                lv_obj_t *text_label = lv_msgbox_get_text(pop_up);
+                lv_obj_set_style_text_font(text_label, &lv_font_dejavu_16_persian_hebrew, 0);
+            }
         } else {
             Serial.printf("Found %d images in directory\n", image_name_list_m.size());
         }
@@ -378,6 +386,23 @@ const lv_font_t* get_language_font() {
     } else {
         return &lv_font_montserrat_32;
     }
+}
+
+// Multilingual text helper functions
+const char* get_text_times_up() {
+    return selected_language == LANG_HEBREW ? "נגמר הזמן" : "Time's Up";
+}
+
+const char* get_text_yes() {
+    return selected_language == LANG_HEBREW ? "כן" : "YES";
+}
+
+const char* get_text_no() {
+    return selected_language == LANG_HEBREW ? "לא" : "NO";
+}
+
+const char* get_text_no_images() {
+    return selected_language == LANG_HEBREW ? "שגיאה: אין תמונות" : "Error: No images";
 }
 
 // Function to generate 8 random letters including the correct answer (English)
@@ -578,9 +603,13 @@ static void close_msgbox_timer_cb(lv_timer_t *timer) {
 void Game::handle_failure() {
     pause_timer_animation();
 
-    lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_CLOSE, "NO", NULL, false);
+    lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_CLOSE, get_text_no(), NULL, false);
     lv_obj_center(pop_up);
-    lv_obj_set_width(pop_up, 65);
+    lv_obj_set_width(pop_up, 100);
+    if (selected_language == LANG_HEBREW) {
+        lv_obj_t *text_label = lv_msgbox_get_text(pop_up);
+        lv_obj_set_style_text_font(text_label, &lv_font_dejavu_16_persian_hebrew, 0);
+    }
 
     uint32_t close_delay_ms = 1000;
     lv_timer_t *timer = lv_timer_create(close_msgbox_timer_cb, close_delay_ms, pop_up);
@@ -599,9 +628,13 @@ void Game::handle_failure() {
 void Game::handle_success() {
     pause_timer_animation();
 
-    lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_OK, "YES", NULL, false);
+    lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_OK, get_text_yes(), NULL, false);
     lv_obj_center(pop_up);
-    lv_obj_set_width(pop_up, 65);
+    lv_obj_set_width(pop_up, 100);
+    if (selected_language == LANG_HEBREW) {
+        lv_obj_t *text_label = lv_msgbox_get_text(pop_up);
+        lv_obj_set_style_text_font(text_label, &lv_font_dejavu_16_persian_hebrew, 0);
+    }
 
     uint32_t close_delay_ms = 1000;
     lv_timer_t *timer = lv_timer_create(close_msgbox_timer_cb, close_delay_ms, pop_up);
@@ -695,9 +728,13 @@ void handle_check_btn() {
 static void on_timer_timeout(lv_anim_t * a) {
     global_game->pause_timer_animation();
     Serial.println("!!! TIME IS UP! Moving to next image. !!!");
-    lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_WARNING, "time's up", NULL, false);
+    lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_BELL, get_text_times_up(), NULL, false);
     lv_obj_center(pop_up);
-    lv_obj_set_width(pop_up, 100);
+    lv_obj_set_width(pop_up, 150);
+    if (selected_language == LANG_HEBREW) {
+        lv_obj_t *text_label = lv_msgbox_get_text(pop_up);
+        lv_obj_set_style_text_font(text_label, &lv_font_dejavu_16_persian_hebrew, 0);
+    }
 
     uint32_t close_delay_ms = 1000;
     lv_timer_t *timer = lv_timer_create(close_msgbox_timer_cb, close_delay_ms, pop_up);
