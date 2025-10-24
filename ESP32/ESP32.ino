@@ -38,10 +38,9 @@ enum Language {
     LANG_HEBREW
 };
 
-// Global language variable - CHANGE THIS LINE TO SWITCH LANGUAGE:
-// Use LANG_ENGLISH for English or LANG_HEBREW for Hebrew
-static Language selected_language = LANG_HEBREW;  
-static bool language_selected = true;
+// Global language variable
+static Language selected_language = LANG_ENGLISH;  // Will be set by user choice
+static bool language_selected = false;  // Start with language selection screen
 
 
 // Display configuration
@@ -233,10 +232,12 @@ public:
         
         // Get the correct directory based on selected language
         const char* image_dir = get_image_directory();
+        Serial.printf("Reading images from: %s\n", image_dir);
         
         for (int i = 0; i < 10; ++i) {
             image_name_list_m = read_directory_file_list(image_dir);
             if (!image_name_list_m.empty()) break;
+            lv_timer_handler(); // Feed watchdog
             delay(100);
         }
         if (image_name_list_m.empty()) {
@@ -245,6 +246,8 @@ public:
             lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_SD_CARD, error_msg, NULL, false);
             lv_obj_center(pop_up);
             lv_obj_set_width(pop_up, 250);
+        } else {
+            Serial.printf("Found %d images in directory\n", image_name_list_m.size());
         }
     }
 
@@ -358,7 +361,7 @@ private:
 
 
 
-Game* global_game; // Game instance
+Game* global_game = nullptr; // Game instance
 
 // Hebrew alphabet (UTF-8 encoded)
 const char* hebrew_alphabet[] = {
@@ -1018,65 +1021,6 @@ lv_obj_t* initialize_and_place_canvas(lv_obj_t* parent_obj, lv_coord_t width, lv
 
 // Forward declaration for main app initialization
 void init_main_app();
-
-// Language selection callback
-void language_selection_callback(lv_event_t *e) {
-    Language *lang = (Language*)lv_event_get_user_data(e);
-    selected_language = *lang;
-    language_selected = true;
-    
-    Serial.printf("Language selected: %s\n", selected_language == LANG_ENGLISH ? "English" : "Hebrew");
-    
-    // Hide the language selection screen (just hide, don't delete)
-    lv_obj_t *btn = lv_event_get_target(e);
-    lv_obj_t *lang_screen = lv_obj_get_parent(lv_obj_get_parent(btn));
-    lv_obj_add_flag(lang_screen, LV_OBJ_FLAG_HIDDEN);
-    
-    // Initialize the main application (this creates the UI on top)
-    init_main_app();
-}
-
-// Create language selection screen
-void create_language_selection_screen() {
-    // Create a full-screen container with flex layout
-    lv_obj_t *lang_screen = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(lang_screen, screenWidth, screenHeight);
-    lv_obj_center(lang_screen);
-    lv_obj_clear_flag(lang_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(lang_screen, lv_color_hex(0x504DB3), 0);
-    lv_obj_set_style_bg_opa(lang_screen, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(lang_screen, 0, 0);
-    lv_obj_set_flex_flow(lang_screen, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(lang_screen, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_gap(lang_screen, 20, 0);
-    
-    // English button
-    static Language lang_en = LANG_ENGLISH;
-    lv_obj_t *btn_english = lv_btn_create(lang_screen);
-    lv_obj_set_size(btn_english, 180, 60);
-    lv_obj_set_style_bg_color(btn_english, lv_color_hex(0x3498DB), 0);
-    
-    lv_obj_t *label_en = lv_label_create(btn_english);
-    lv_label_set_text(label_en, "English");
-    lv_obj_set_style_text_font(label_en, &lv_font_montserrat_32, 0);
-    lv_obj_center(label_en);
-    
-    lv_obj_add_event_cb(btn_english, language_selection_callback, LV_EVENT_CLICKED, &lang_en);
-    
-    // Hebrew button  
-    static Language lang_he = LANG_HEBREW;
-    lv_obj_t *btn_hebrew = lv_btn_create(lang_screen);
-    lv_obj_set_size(btn_hebrew, 180, 60);
-    lv_obj_set_style_bg_color(btn_hebrew, lv_color_hex(0xE74C3C), 0);
-    
-    lv_obj_t *label_he = lv_label_create(btn_hebrew);
-    lv_label_set_text(label_he, "עברית");
-    lv_obj_set_style_text_font(label_he, &lv_font_dejavu_16_persian_hebrew, 0);
-    lv_obj_center(label_he);
-    
-    lv_obj_add_event_cb(btn_hebrew, language_selection_callback, LV_EVENT_CLICKED, &lang_he);
-}
-
 void setup() {
     Serial.begin(115200);
     
@@ -1178,15 +1122,83 @@ void setup() {
         lv_timer_handler();
     }
 
-    // Initialize the main app directly (no language selection screen)
-    init_main_app();
+    // Show language selection screen first
+    create_language_selection_screen();
 
-    Serial.println("Setup complete"); 
+    Serial.println("Setup complete - waiting for language selection"); 
     }
+}
+
+// Language selection callback
+void language_selection_callback(lv_event_t *e) {
+    lv_obj_t *btn = lv_event_get_target(e);
+    Language *lang_ptr = (Language*)lv_event_get_user_data(e);
+    
+    if (lang_ptr) {
+        selected_language = *lang_ptr;
+        Serial.printf("Language selected: %s\n", selected_language == LANG_ENGLISH ? "English" : "Hebrew");
+        
+        // Get the language selection screen
+        lv_obj_t *lang_screen = lv_obj_get_parent(lv_obj_get_parent(btn));
+        
+        // Clean the screen first (remove all children from the active screen)
+        lv_obj_clean(lv_scr_act());
+        lv_timer_handler();
+        
+        // Give the system time to clean up
+        for(int i = 0; i < 10; i++) {
+            lv_timer_handler();
+            delay(5);
+        }
+        
+        Serial.println("Screen cleaned, initializing main app...");
+        
+        // Initialize the main application
+        init_main_app();
+    }
+}
+
+// Create language selection screen
+void create_language_selection_screen() {
+    // Create a fullscreen container with flex layout
+    lv_obj_t *lang_screen = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(lang_screen, screenWidth, screenHeight);
+    lv_obj_set_style_bg_color(lang_screen, lv_color_hex(0x003773), 0);
+    lv_obj_set_style_border_width(lang_screen, 0, 0);
+    lv_obj_set_flex_flow(lang_screen, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(lang_screen, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_gap(lang_screen, 20, 0);
+    
+    // English button
+    lv_obj_t *btn_en = lv_btn_create(lang_screen);
+    lv_obj_set_size(btn_en, 180, 60);
+    lv_obj_t *label_en = lv_label_create(btn_en);
+    lv_label_set_text(label_en, "English");
+    lv_obj_set_style_text_font(label_en, &lv_font_montserrat_32, 0);
+    lv_obj_center(label_en);
+    
+    static Language lang_en = LANG_ENGLISH;
+    lv_obj_add_event_cb(btn_en, language_selection_callback, LV_EVENT_CLICKED, &lang_en);
+    
+    // Hebrew button
+    lv_obj_t *btn_he = lv_btn_create(lang_screen);
+    lv_obj_set_size(btn_he, 180, 60);
+    lv_obj_t *label_he = lv_label_create(btn_he);
+    lv_label_set_text(label_he, "עברית");
+    lv_obj_set_style_text_font(label_he, &lv_font_dejavu_16_persian_hebrew, 0);
+    lv_obj_center(label_he);
+    
+    static Language lang_he = LANG_HEBREW;
+    lv_obj_add_event_cb(btn_he, language_selection_callback, LV_EVENT_CLICKED, &lang_he);
+    
+    Serial.println("Language selection screen created");
 }
 
 // Initialize main application (called after language selection)
 void init_main_app() {
+    Serial.println("=== Starting main app initialization ===");
+    Serial.printf("Selected language: %s\n", selected_language == LANG_ENGLISH ? "English" : "Hebrew");
+    
     lv_obj_t *main_cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(main_cont, screenWidth, screenHeight);
     lv_obj_set_style_pad_all(main_cont, 0, 0);
@@ -1207,7 +1219,7 @@ void init_main_app() {
 
     // Add 4 tabs
     lv_obj_t *tab0 = lv_tabview_add_tab(tabview, LV_SYMBOL_IMAGE);
-    lv_obj_t *tab1 = lv_tabview_add_tab(tabview, "ABC");
+    lv_obj_t *tab1 = lv_tabview_add_tab(tabview, LV_SYMBOL_LIST);
     lv_obj_t *tab2 = lv_tabview_add_tab(tabview, LV_SYMBOL_KEYBOARD);
     lv_obj_t *tab3 = lv_tabview_add_tab(tabview, LV_SYMBOL_EDIT);
 
@@ -1232,6 +1244,7 @@ void init_main_app() {
     setup_tab_layout(tab1);
     setup_tab_layout(tab2);
     setup_tab_layout(tab3);
+    Serial.println("Tabs created and configured");
 
     // Create letter button container for tab1 (Random Letters)
     global_letter_container = lv_obj_create(tab1);
@@ -1262,6 +1275,7 @@ void init_main_app() {
         // Set the event handler to capture key presses
         lv_obj_add_event_cb(keyboard, keyboard_event_cb, LV_EVENT_ALL, NULL);
     }
+    Serial.printf("Keyboard created (%s)\n", selected_language == LANG_HEBREW ? "Hebrew" : "English");
 
     // Initialize canvas tab
     initialize_and_place_canvas(tab3, 120, 120);
@@ -1282,12 +1296,26 @@ void init_main_app() {
     }
     
     current_image_obj = init_image_display(tab0, first_image_path.c_str());
+    Serial.printf("First image loaded: %s\n", first_image_path.c_str());
+    
+    // Delete old game object if it exists
+    if (global_game != nullptr) {
+        delete global_game;
+        global_game = nullptr;
+        Serial.println("Old game object deleted");
+    }
+    
+    lv_timer_handler(); // Feed watchdog
     
     // Create game with the image object
     global_game = new Game(current_image_obj, timer_bar);
+    Serial.println("Game object created");
+    
+    lv_timer_handler(); // Feed watchdog
     
     // Initialize random letter buttons for the first image
     update_letter_buttons();
+    Serial.println("Letter buttons initialized");
 
     global_keyboard = keyboard;
     global_main_cont = main_cont;
