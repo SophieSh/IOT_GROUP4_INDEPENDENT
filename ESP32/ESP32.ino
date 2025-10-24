@@ -227,7 +227,9 @@ void change_image(lv_obj_t *img_obj, const char *new_path) {
 
 class Game {
 public:
-    Game(lv_obj_t *img, lv_obj_t *timer) : current_image_obj_m(img), image_pos_m(0), timer_bar_obj_m(timer) {
+    Game(lv_obj_t *img, lv_obj_t *timer) : current_image_obj_m(img), image_pos_m(0), timer_bar_obj_m(timer), 
+                                            correct_answers_m(0), wrong_answers_m(0), images_completed_m(0), 
+                                            game_loop_complete_m(false) {
         start_timer_animation();
         
         // Get the correct directory based on selected language
@@ -353,13 +355,54 @@ public:
     }
 
     void iterate_image() {
+        images_completed_m++;
         image_pos_m = (image_pos_m + 1) % image_name_list_m.size();
+        
+        // Check if we've completed a full loop (all images shown)
+        if (images_completed_m >= image_name_list_m.size()) {
+            game_loop_complete_m = true;
+        }
     }
+    
+    bool is_game_complete() const {
+        return game_loop_complete_m;
+    }
+    
+    int get_correct_answers() const {
+        return correct_answers_m;
+    }
+    
+    int get_wrong_answers() const {
+        return wrong_answers_m;
+    }
+    
+    int get_total_images() const {
+        return image_name_list_m.size();
+    }
+    
+    void reset_game() {
+        correct_answers_m = 0;
+        wrong_answers_m = 0;
+        images_completed_m = 0;
+        game_loop_complete_m = false;
+        image_pos_m = 0;
+    }
+    
+    void increment_wrong_answers() {
+        wrong_answers_m++;
+    }
+    
 private:
     lv_obj_t *current_image_obj_m;
     lv_obj_t *timer_bar_obj_m;
     int image_pos_m;
     std::vector<std::string> image_name_list_m;
+    
+    // Score tracking
+    int correct_answers_m;
+    int wrong_answers_m;
+    int images_completed_m;
+    bool game_loop_complete_m;
 
     void handle_failure();
     void handle_success();
@@ -384,7 +427,7 @@ const lv_font_t* get_language_font() {
     if (selected_language == LANG_HEBREW) {
         return &lv_font_dejavu_16_persian_hebrew;
     } else {
-        return &lv_font_montserrat_32;
+        return &lv_font_montserrat_16;
     }
 }
 
@@ -403,6 +446,26 @@ const char* get_text_no() {
 
 const char* get_text_no_images() {
     return selected_language == LANG_HEBREW ? "שגיאה: אין תמונות" : "Error: No images";
+}
+
+const char* get_text_game_complete() {
+    return selected_language == LANG_HEBREW ? "המשחק הסתיים!" : "Game Complete!";
+}
+
+const char* get_text_score() {
+    return selected_language == LANG_HEBREW ? "ציון" : "Score";
+}
+
+const char* get_text_correct() {
+    return selected_language == LANG_HEBREW ? "נכון" : "Correct";
+}
+
+const char* get_text_wrong() {
+    return selected_language == LANG_HEBREW ? "שגוי" : "Wrong";
+}
+
+const char* get_text_play_again() {
+    return selected_language == LANG_HEBREW ? "שחק שוב" : "Play Again";
 }
 
 // Function to generate 8 random letters including the correct answer (English)
@@ -503,6 +566,9 @@ void generate_random_letters_hebrew(const char* correct_letter_str, const char**
 }
 
 // Function to update the letter buttons with new random letters
+// Forward declarations
+void show_results_screen();
+
 void update_letter_buttons() {
     if (!global_letter_container || !global_game) return;
     
@@ -602,6 +668,9 @@ static void close_msgbox_timer_cb(lv_timer_t *timer) {
 
 void Game::handle_failure() {
     pause_timer_animation();
+    
+    // Increment wrong answer counter
+    wrong_answers_m++;
 
     lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_CLOSE, get_text_no(), NULL, false);
     lv_obj_center(pop_up);
@@ -619,6 +688,14 @@ void Game::handle_failure() {
     lv_tabview_set_act(global_tabview, 0, LV_ANIM_ON);
 
     iterate_image();
+    
+    // Check if game is complete
+    if (is_game_complete()) {
+        Serial.println("Game complete! Showing results...");
+        show_results_screen();
+        return;
+    }
+    
     start_timer_animation();
     change_image(current_image_obj, global_game->get_path().c_str());
     update_letter_buttons(); // Update random letters for new image
@@ -627,6 +704,9 @@ void Game::handle_failure() {
 
 void Game::handle_success() {
     pause_timer_animation();
+    
+    // Increment correct answer counter
+    correct_answers_m++;
 
     lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_OK, get_text_yes(), NULL, false);
     lv_obj_center(pop_up);
@@ -644,6 +724,14 @@ void Game::handle_success() {
     lv_tabview_set_act(global_tabview, 0, LV_ANIM_ON);
 
     iterate_image();
+    
+    // Check if game is complete
+    if (is_game_complete()) {
+        Serial.println("Game complete! Showing results...");
+        show_results_screen();
+        return;
+    }
+    
     start_timer_animation();
     change_image(current_image_obj, global_game->get_path().c_str());
     update_letter_buttons(); // Update random letters for new image
@@ -727,6 +815,10 @@ void handle_check_btn() {
 
 static void on_timer_timeout(lv_anim_t * a) {
     global_game->pause_timer_animation();
+    
+    // Count timeout as a wrong answer
+    global_game->increment_wrong_answers();
+    
     Serial.println("!!! TIME IS UP! Moving to next image. !!!");
     lv_obj_t *pop_up = lv_msgbox_create(NULL, LV_SYMBOL_BELL, get_text_times_up(), NULL, false);
     lv_obj_center(pop_up);
@@ -740,10 +832,17 @@ static void on_timer_timeout(lv_anim_t * a) {
     lv_timer_t *timer = lv_timer_create(close_msgbox_timer_cb, close_delay_ms, pop_up);
     lv_timer_set_repeat_count(timer, 1);
 
-
     lv_tabview_set_act(global_tabview, 0, LV_ANIM_ON);
 
     global_game->iterate_image();
+    
+    // Check if game is complete
+    if (global_game->is_game_complete()) {
+        Serial.println("Game complete after timeout! Showing results...");
+        show_results_screen();
+        return;
+    }
+    
     change_image(current_image_obj, global_game->get_path().c_str());
     update_letter_buttons(); // Update random letters for new image
 
@@ -1058,6 +1157,106 @@ lv_obj_t* initialize_and_place_canvas(lv_obj_t* parent_obj, lv_coord_t width, lv
 
 // Forward declaration for main app initialization
 void init_main_app();
+// Callback for Play Again button
+void play_again_callback(lv_event_t *e) {
+    // Clean the results screen
+    lv_obj_t *results_screen = (lv_obj_t*)lv_event_get_user_data(e);
+    lv_obj_del(results_screen);
+    
+    // Reset the game
+    if (global_game) {
+        global_game->reset_game();
+        
+        // Reset to first image
+        change_image(current_image_obj, global_game->get_path().c_str());
+        update_letter_buttons();
+        
+        // Switch to image tab and restart timer
+        lv_tabview_set_act(global_tabview, 0, LV_ANIM_ON);
+        global_game->start_timer_animation();
+        
+        Serial.println("Game restarted!");
+    }
+}
+
+// Show results screen after completing all images
+void show_results_screen() {
+    if (!global_game) return;
+    
+    // Create fullscreen results container
+    lv_obj_t *results_screen = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(results_screen, screenWidth, screenHeight);
+    lv_obj_set_style_bg_color(results_screen, lv_color_hex(0x003773), 0);
+    lv_obj_set_style_border_width(results_screen, 0, 0);
+    lv_obj_set_flex_flow(results_screen, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(results_screen, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_gap(results_screen, 8, 0);
+    lv_obj_set_style_pad_all(results_screen, 5, 0);
+    
+    // Use consistent 16pt fonts for all text
+    const lv_font_t* display_font = selected_language == LANG_HEBREW ? 
+        &lv_font_dejavu_16_persian_hebrew : &lv_font_montserrat_16;
+    
+    // Title
+    lv_obj_t *title = lv_label_create(results_screen);
+    lv_label_set_text(title, get_text_game_complete());
+    lv_obj_set_style_text_font(title, display_font, 0);
+    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
+    
+    // Score container
+    lv_obj_t *score_cont = lv_obj_create(results_screen);
+    lv_obj_set_size(score_cont, 220, 120);
+    lv_obj_set_style_bg_color(score_cont, lv_color_hex(0x504DB3), 0);
+    lv_obj_set_style_border_width(score_cont, 2, 0);
+    lv_obj_set_style_border_color(score_cont, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_flex_flow(score_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(score_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_gap(score_cont, 5, 0);
+    lv_obj_set_style_pad_all(score_cont, 8, 0);
+    
+    // Correct answers
+    char correct_text[50];
+    snprintf(correct_text, sizeof(correct_text), "%s: %d", 
+             get_text_correct(), global_game->get_correct_answers());
+    lv_obj_t *correct_label = lv_label_create(score_cont);
+    lv_label_set_text(correct_label, correct_text);
+    lv_obj_set_style_text_font(correct_label, display_font, 0);
+    lv_obj_set_style_text_color(correct_label, lv_color_hex(0x00FF00), 0);
+    
+    // Wrong answers
+    char wrong_text[50];
+    snprintf(wrong_text, sizeof(wrong_text), "%s: %d", 
+             get_text_wrong(), global_game->get_wrong_answers());
+    lv_obj_t *wrong_label = lv_label_create(score_cont);
+    lv_label_set_text(wrong_label, wrong_text);
+    lv_obj_set_style_text_font(wrong_label, display_font, 0);
+    lv_obj_set_style_text_color(wrong_label, lv_color_hex(0xFF0000), 0);
+    
+    // Total score display
+    int total = global_game->get_total_images();
+    int correct = global_game->get_correct_answers();
+    char score_text[50];
+    snprintf(score_text, sizeof(score_text), "%s: %d/%d", 
+             get_text_score(), correct, total);
+    lv_obj_t *score_label = lv_label_create(score_cont);
+    lv_label_set_text(score_label, score_text);
+    lv_obj_set_style_text_font(score_label, display_font, 0);
+    lv_obj_set_style_text_color(score_label, lv_color_hex(0xFFFFFF), 0);
+    
+    // Play Again button
+    lv_obj_t *play_again_btn = lv_btn_create(results_screen);
+    lv_obj_set_size(play_again_btn, 180, 50);
+    lv_obj_t *btn_label = lv_label_create(play_again_btn);
+    lv_label_set_text(btn_label, get_text_play_again());
+    lv_obj_set_style_text_font(btn_label, display_font, 0);
+    lv_obj_center(btn_label);
+    
+    lv_obj_add_event_cb(play_again_btn, play_again_callback, LV_EVENT_CLICKED, results_screen);
+    
+    Serial.printf("Results - Correct: %d, Wrong: %d, Total: %d\n", 
+                  correct, global_game->get_wrong_answers(), total);
+}
+
 void setup() {
     Serial.begin(115200);
     
@@ -1211,7 +1410,7 @@ void create_language_selection_screen() {
     lv_obj_set_size(btn_en, 180, 60);
     lv_obj_t *label_en = lv_label_create(btn_en);
     lv_label_set_text(label_en, "English");
-    lv_obj_set_style_text_font(label_en, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(label_en, &lv_font_montserrat_16, 0);
     lv_obj_center(label_en);
     
     static Language lang_en = LANG_ENGLISH;
