@@ -1,9 +1,0 @@
-TAMC_GT911 by TAMC - 1.0.2 installed
-Ivgl by kisvegabor - 8.3.3 installed
-GFX Library for Arduino by Moon On Our Nation - 1.2.9 installed
-
-
-Copy the file "LVGL configuration replacement file/lv_conf.h" to your Arduino libraries folder (usually Documents/Arduino/Libraries)
-
-
-LVGL EXAMPLES - https://docs.lvgl.io/master/examples.html
