@@ -6,9 +6,10 @@ The interface is child-friendly and easy to navigate, encouraging playful explor
 ## Detailed description :
 When the user (the child) opens the app, they can choose between two languages — Hebrew and English — and then the game begins with the first image displayed. The user is required to provide the first letter of the object shown in the image. There are several ways to play the game:
 
-Selecting a letter from a set of eight letters displayed on the screen.
-Choosing a letter from a keyboard that includes all the letters of the alphabet.
-Writing a letter on a canvas (without an option to check it). The marks made by the user are displayed in real time, and there is also an option to erase them.
+1. Selecting a letter from a set of eight letters displayed on the screen.
+2. Choosing a letter from a keyboard that includes all the letters of the alphabet.
+3. Writing a letter on a canvas (without an option to check it). The marks made by the user are displayed in real time, and there is also an option to erase them.
+   
 Each game mode is time-limited (30 seconds per answer), with a progress bar shown at the bottom of the screen. Options 1 and 2 provide real-time feedback, displaying a pop-up message to inform the user whether their answer was correct or incorrect, accompanied by a sound indicating success or failure, respectively.
  
 ## Folder description :
