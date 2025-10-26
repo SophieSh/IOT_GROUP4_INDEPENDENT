@@ -1,3 +1,6 @@
+## TODO
+Complete installation instructions.
+
 ## AlphaLearn Project by : Yonatan Rappoport, Gital Monisov, Sofiya Shterenson
 AlphaLearn is a compact educational game that helps children take their first steps in learning to read, write, and recognize letters. Built with LVGL, it runs on small displays and supports multiple learning styles — including visual learning through images, typing with a keyboard, and practicing on a handwriting canvas.
 
