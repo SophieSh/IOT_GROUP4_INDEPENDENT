@@ -18,8 +18,7 @@ Each game mode is time-limited (30 seconds per answer), with a progress bar show
 ## Folder description :
 * ESP32: source code for the esp side (firmware), and necessary header files
 * Documentation: wiring curcuit diagram image + basic operating instructions
-* Unit Tests: tests for individual hardware components: input/output devices
-* Parameters: description for settings which you can be modified IN THE CODE
+
 
 ## Arduino/ESP32 libraries used in this project:
 * LVGL - version 8.3.11
