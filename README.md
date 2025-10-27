@@ -16,6 +16,7 @@ Each game mode is time-limited (30 seconds per answer), with a progress bar show
 ## Folder description :
 * ESP32: source code for the esp side (firmware), and necessary header files
 * Documentation: wiring curcuit diagram image + basic operating instructions
+* Assets: Image files used in this project
 
 
 ## Arduino/ESP32 libraries used in this project:
