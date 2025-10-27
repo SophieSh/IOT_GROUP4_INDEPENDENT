@@ -22,6 +22,9 @@ Each game mode is time-limited (30 seconds per answer), with a progress bar show
 * LVGL - version 8.3.11
 * GFX Library for Arduino - version 1.6.1
 
+## Configurations 
+Copy the file "LVGL configuration replacement file/lv_conf.h" to your Arduino libraries folder (usually Documents/Arduino/Libraries)
+
 ## HardWare:
 * ESP32-2432S032 (CYD LCD touch display)
 * Simple buzzer
