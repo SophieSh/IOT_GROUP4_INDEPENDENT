@@ -17,8 +17,6 @@ Each game mode is time-limited (30 seconds per answer), with a progress bar show
 * ESP32: source code for the esp side (firmware), and necessary header files
 * Documentation: wiring curcuit diagram image + basic operating instructions
 * Assets: Image files used in this project
-* link to app additional material: https://drive.google.com/drive/folders/1dwLceSk4nyeZq7giMvBYTimk0Yrvjn1L
-
 
 ## Arduino/ESP32 libraries used in this project:
 * LVGL - version 8.3.11
@@ -33,9 +31,10 @@ Copy the file "LVGL configuration replacement file/lv_conf.h" to your Arduino li
 
 
 ## Connection diagram:
-![alt text]("Documentation/connection diagram/circuit_diagram.png")
+Documentation/connection diagram/circuit_diagram.png
 
 ## Project Poster:
+
  
 This project is part of ICST - The Interdisciplinary Center for Smart Technologies, Taub Faculty of Computer Science, Technion
 https://icst.cs.technion.ac.il/
